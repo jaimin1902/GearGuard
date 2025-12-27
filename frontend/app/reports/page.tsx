@@ -31,56 +31,56 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Reports</h1>
-        <p className="text-muted-foreground">Analytics and statistics for maintenance requests</p>
+        <h1 className="text-3xl font-bold text-[#374151]">Reports</h1>
+        <p className=" text-[#374151]">Analytics and statistics for maintenance requests</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Request Statistics</CardTitle>
+          <CardTitle className="text-[#374151]">Request Statistics</CardTitle>
           <CardDescription>View statistics grouped by team or equipment category</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-4">
             <Select value={groupBy} onValueChange={(value: "team" | "equipment_category") => setGroupBy(value)}>
-              <SelectTrigger className="w-64">
+              <SelectTrigger className="w-64 text-[#374151]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="team">Group by Team</SelectItem>
-                <SelectItem value="equipment_category">Group by Equipment Category</SelectItem>
+                <SelectItem value="team" className="text-[#374151]">Group by Team</SelectItem>
+                <SelectItem value="equipment_category" className="text-[#374151]">Group by Equipment Category</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {loading ? (
-            <div className="text-center py-8">Loading...</div>
+            <div className="text-center py-8 text-[#374151]">Loading...</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{groupBy === "team" ? "Team Name" : "Equipment Category"}</TableHead>
-                  <TableHead>Total Requests</TableHead>
-                  <TableHead>New</TableHead>
-                  <TableHead>In Progress</TableHead>
-                  <TableHead>Repaired</TableHead>
+                  <TableHead className="text-[#374151]">{groupBy === "team" ? "Team Name" : "Equipment Category"}</TableHead>
+                  <TableHead className="text-[#374151]">Total Requests</TableHead>
+                  <TableHead className="text-[#374151]">New</TableHead>
+                  <TableHead className="text-[#374151]">In Progress</TableHead>
+                  <TableHead className="text-[#374151]">Repaired</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {statistics.map((stat, index) => (
                   <TableRow key={index}>
-                    <TableCell className="font-medium">{stat.group_name || "Uncategorized"}</TableCell>
+                    <TableCell className="font-medium text-[#374151]">{stat.group_name || "Uncategorized"}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{stat.total_requests}</Badge>
+                      <Badge variant="outline" className="text-[#374151]">{stat.total_requests}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{stat.new_count || 0}</Badge>
+                      <Badge variant="outline" className="text-[#374151]">{stat.new_count || 0}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{stat.in_progress_count || 0}</Badge>
+                      <Badge variant="secondary" className="text-[#374151]">{stat.in_progress_count || 0}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="default">{stat.repaired_count || 0}</Badge>
+                      <Badge variant="default" className=" bg-[#714B67] text-white">{stat.repaired_count || 0}</Badge>
                     </TableCell>
                   </TableRow>
                 ))}

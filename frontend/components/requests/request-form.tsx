@@ -19,31 +19,85 @@ import { Label } from "@/components/ui/label";
 import { requestsAPI, equipmentAPI, workCentersAPI, usersAPI, teamsAPI } from "@/lib/api";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+// Enhanced validation schema with comprehensive validations
 const requestSchema = z.object({
-  subject: z.string().min(1, "Subject is required"),
-  description: z.string().optional(),
-  request_type: z.enum(["corrective", "preventive"]),
-  maintenance_for: z.enum(["equipment", "work_center"]),
+  subject: z.string()
+    .min(1, "Subject is required")
+    .min(3, "Subject must be at least 3 characters")
+    .max(255, "Subject must not exceed 255 characters")
+    .trim(),
+  description: z.string()
+    .max(1000, "Description must not exceed 1000 characters")
+    .optional()
+    .or(z.literal("")),
+  request_type: z.enum(["corrective", "preventive"], {
+    required_error: "Maintenance type is required",
+  }),
+  maintenance_for: z.enum(["equipment", "work_center"], {
+    required_error: "Maintenance for is required",
+  }),
   equipment_id: z.string().optional(),
   work_center_id: z.string().optional(),
-  scheduled_date: z.string().optional(),
-  scheduled_datetime: z.string().optional(),
+  scheduled_date: z.string()
+    .optional()
+    .refine((val) => {
+      if (!val || val === "") return true;
+      const date = new Date(val);
+      return !isNaN(date.getTime());
+    }, "Invalid date format"),
+  scheduled_datetime: z.string()
+    .optional()
+    .refine((val) => {
+      if (!val || val === "") return true;
+      const date = new Date(val);
+      return !isNaN(date.getTime());
+    }, "Invalid date and time format")
+    .refine((val) => {
+      if (!val || val === "") return true;
+      const date = new Date(val);
+      return date >= new Date(new Date().setHours(0, 0, 0, 0));
+    }, "Scheduled date and time cannot be in the past"),
   assigned_to_user_id: z.string().optional(),
-  duration_hours: z.string().optional(),
-  priority: z.number().min(1).max(3).optional(),
-  notes: z.string().optional(),
-  instructions: z.string().optional(),
+  duration_hours: z.string()
+    .optional()
+    .refine((val) => {
+      if (!val || val === "") return true;
+      const num = parseFloat(val);
+      return !isNaN(num) && num >= 0 && num <= 1000;
+    }, "Duration must be a number between 0 and 1000 hours"),
+  priority: z.number()
+    .min(1, "Priority must be at least 1")
+    .max(3, "Priority must be at most 3")
+    .default(1),
+  notes: z.string()
+    .max(2000, "Notes must not exceed 2000 characters")
+    .optional()
+    .or(z.literal("")),
+  instructions: z.string()
+    .max(2000, "Instructions must not exceed 2000 characters")
+    .optional()
+    .or(z.literal("")),
   status: z.enum(["new", "in_progress", "repaired", "scrapped"]).optional(),
 }).refine((data) => {
   if (data.maintenance_for === "equipment") {
-    return !!data.equipment_id;
+    return !!data.equipment_id && data.equipment_id !== "";
   } else {
-    return !!data.work_center_id;
+    return !!data.work_center_id && data.work_center_id !== "";
   }
 }, {
   message: "Equipment or Work Center is required",
   path: ["equipment_id"],
+}).refine((data) => {
+  // If preventive, scheduled date or datetime should be provided
+  if (data.request_type === "preventive") {
+    return !!(data.scheduled_date || data.scheduled_datetime);
+  }
+  return true;
+}, {
+  message: "Scheduled date or date & time is required for preventive maintenance",
+  path: ["scheduled_date"],
 });
 
 type RequestFormValues = z.infer<typeof requestSchema>;
@@ -60,6 +114,7 @@ export function RequestForm({ requestId, onSuccess }: RequestFormProps) {
   const [teams, setTeams] = useState<any[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
   const [selectedWorkCenter, setSelectedWorkCenter] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
 
   const form = useForm<RequestFormValues>({
     resolver: zodResolver(requestSchema),
@@ -82,6 +137,7 @@ export function RequestForm({ requestId, onSuccess }: RequestFormProps) {
   });
 
   const maintenanceFor = form.watch("maintenance_for");
+  const requestType = form.watch("request_type");
 
   useEffect(() => {
     loadOptions();
@@ -119,7 +175,7 @@ export function RequestForm({ requestId, onSuccess }: RequestFormProps) {
         maintenance_for: maintenanceFor,
         equipment_id: maintenanceFor === "equipment" && data.equipment_id ? data.equipment_id.toString() : "",
         work_center_id: maintenanceFor === "work_center" && data.work_center_id ? data.work_center_id.toString() : "",
-        scheduled_date: data.scheduled_date || "",
+        scheduled_date: data.scheduled_date ? data.scheduled_date.split('T')[0] : "",
         scheduled_datetime: data.scheduled_datetime ? new Date(data.scheduled_datetime).toISOString().slice(0, 16) : "",
         assigned_to_user_id: data.assigned_to_user_id ? data.assigned_to_user_id.toString() : "",
         duration_hours: data.duration_hours?.toString() || "",
@@ -153,6 +209,8 @@ export function RequestForm({ requestId, onSuccess }: RequestFormProps) {
       } catch (error) {
         console.error("Failed to load equipment:", error);
       }
+    } else {
+      setSelectedEquipment(null);
     }
   }
 
@@ -164,11 +222,50 @@ export function RequestForm({ requestId, onSuccess }: RequestFormProps) {
       } catch (error) {
         console.error("Failed to load work center:", error);
       }
+    } else {
+      setSelectedWorkCenter(null);
     }
   }
 
   async function onSubmit(values: RequestFormValues) {
     try {
+      setLoading(true);
+      
+      // Validate dates
+      if (values.scheduled_date) {
+        const date = new Date(values.scheduled_date);
+        if (isNaN(date.getTime())) {
+          form.setError("scheduled_date", { message: "Invalid date format" });
+          setLoading(false);
+          return;
+        }
+      }
+      
+      if (values.scheduled_datetime) {
+        const date = new Date(values.scheduled_datetime);
+        if (isNaN(date.getTime())) {
+          form.setError("scheduled_datetime", { message: "Invalid date and time format" });
+          setLoading(false);
+          return;
+        }
+        // Check if datetime is in the past
+        if (date < new Date(new Date().setHours(0, 0, 0, 0))) {
+          form.setError("scheduled_datetime", { message: "Scheduled date and time cannot be in the past" });
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Validate duration
+      if (values.duration_hours) {
+        const duration = parseFloat(values.duration_hours);
+        if (isNaN(duration) || duration < 0 || duration > 1000) {
+          form.setError("duration_hours", { message: "Duration must be between 0 and 1000 hours" });
+          setLoading(false);
+          return;
+        }
+      }
+      
       const payload: any = {
         ...values,
         equipment_id: values.maintenance_for === "equipment" && values.equipment_id ? parseInt(values.equipment_id) : null,
@@ -189,366 +286,479 @@ export function RequestForm({ requestId, onSuccess }: RequestFormProps) {
       onSuccess();
       if (!requestId) {
         form.reset();
+        setSelectedEquipment(null);
+        setSelectedWorkCenter(null);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save request:", error);
-      alert("Failed to save request. Please try again.");
+      const errorMessage = error?.message || "Failed to save request. Please check all fields and try again.";
+      alert(errorMessage);
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="subject"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Subject? *</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="What is wrong?" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+    <div className="space-y-6">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Main Information Card - Odoo Style */}
+          <Card className="border-0 shadow-sm bg-white">
+            <CardHeader className="pb-4 border-b">
+              <CardTitle className="text-lg font-semibold text-[#374151]">Main Information</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="subject"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">Subject *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="What is wrong?" 
+                          className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
 
-          <FormField
-            control={form.control}
-            name="maintenance_for"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Maintenance For *</FormLabel>
-                <Select 
-                  onValueChange={(value) => {
-                    field.onChange(value);
-                    // Clear the other field when switching
-                    if (value === "equipment") {
-                      form.setValue("work_center_id", "");
-                      form.setValue("equipment_id", "");
-                      setSelectedWorkCenter(null);
-                    } else {
-                      form.setValue("equipment_id", "");
-                      form.setValue("work_center_id", "");
-                      setSelectedEquipment(null);
-                    }
-                  }} 
-                  value={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="equipment">Equipment</SelectItem>
-                    <SelectItem value="work_center">Work Center</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {maintenanceFor === "equipment" ? (
-          <FormField
-            control={form.control}
-            name="equipment_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Equipment *</FormLabel>
-                <Select
-                  onValueChange={(value) => {
-                    field.onChange(value);
-                    handleEquipmentChange(value);
-                  }}
-                  value={field.value || undefined}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select equipment" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {equipment.length > 0 ? (
-                      equipment.map((eq) => (
-                        <SelectItem key={eq.id} value={eq.id.toString()}>
-                          {eq.name} {eq.serial_number ? `(${eq.serial_number})` : ""}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-equipment" disabled>No equipment available</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                {selectedEquipment && (
-                  <p className="text-xs text-muted-foreground">
-                    Category: {selectedEquipment.equipment_category_name || selectedEquipment.category || "N/A"} | Team: {selectedEquipment.maintenance_team_name || "N/A"}
-                  </p>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ) : (
-          <FormField
-            control={form.control}
-            name="work_center_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Work Center *</FormLabel>
-                <Select
-                  onValueChange={(value) => {
-                    field.onChange(value);
-                    handleWorkCenterChange(value);
-                  }}
-                  value={field.value || undefined}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select work center" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {workCenters.length > 0 ? (
-                      workCenters.map((wc) => (
-                        <SelectItem key={wc.id} value={wc.id.toString()}>
-                          {wc.name} {wc.code ? `(${wc.code})` : ""}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-workcenters" disabled>No work centers available</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                {selectedWorkCenter && (
-                  <p className="text-xs text-muted-foreground">
-                    Team: {selectedWorkCenter.maintenance_team_name}
-                  </p>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="request_type"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Maintenance Type *</FormLabel>
-                <FormControl>
-                  <RadioGroup
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    className="flex gap-4"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="corrective" id="corrective" />
-                      <Label htmlFor="corrective">Corrective</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="preventive" id="preventive" />
-                      <Label htmlFor="preventive">Preventive</Label>
-                    </div>
-                  </RadioGroup>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="priority"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Priority</FormLabel>
-                <FormControl>
-                  <div className="flex gap-2">
-                    {[1, 2, 3].map((level) => (
-                      <button
-                        key={level}
-                        type="button"
-                        onClick={() => field.onChange(level)}
-                        className={`h-8 w-8 border-2 rounded-sm flex items-center justify-center ${
-                          level <= (field.value || 1)
-                            ? "bg-primary border-primary text-white"
-                            : "border-gray-300"
-                        }`}
+                <FormField
+                  control={form.control}
+                  name="maintenance_for"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">Maintenance For *</FormLabel>
+                      <Select 
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          if (value === "equipment") {
+                            form.setValue("work_center_id", "");
+                            form.setValue("equipment_id", "");
+                            setSelectedWorkCenter(null);
+                          } else {
+                            form.setValue("equipment_id", "");
+                            form.setValue("work_center_id", "");
+                            setSelectedEquipment(null);
+                          }
+                        }} 
+                        value={field.value}
                       >
-                        {level <= (field.value || 1) && "✓"}
-                      </button>
-                    ))}
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+                        <FormControl>
+                          <SelectTrigger className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="equipment">Equipment</SelectItem>
+                          <SelectItem value="work_center">Work Center</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="scheduled_date"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Scheduled Date</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              {maintenanceFor === "equipment" ? (
+                <FormField
+                  control={form.control}
+                  name="equipment_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">Equipment *</FormLabel>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          handleEquipmentChange(value);
+                        }}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                            <SelectValue placeholder="Select equipment" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {equipment.length > 0 ? (
+                            equipment.map((eq) => (
+                              <SelectItem key={eq.id} value={eq.id.toString()}>
+                                {eq.name} {eq.serial_number ? `(${eq.serial_number})` : ""}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="px-2 py-1.5 text-sm text-gray-500">No equipment available</div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {selectedEquipment && (
+                        <div className="mt-1 text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                          <span className="font-medium">Category:</span> {selectedEquipment.equipment_category_name || selectedEquipment.category || "N/A"} | 
+                          <span className="font-medium ml-2">Team:</span> {selectedEquipment.maintenance_team_name || "N/A"}
+                        </div>
+                      )}
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              ) : (
+                <FormField
+                  control={form.control}
+                  name="work_center_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">Work Center *</FormLabel>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          handleWorkCenterChange(value);
+                        }}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                            <SelectValue placeholder="Select work center" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {workCenters.length > 0 ? (
+                            workCenters.map((wc) => (
+                              <SelectItem key={wc.id} value={wc.id.toString()}>
+                                {wc.name} {wc.code ? `(${wc.code})` : ""}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="px-2 py-1.5 text-sm text-gray-500">No work centers available</div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {selectedWorkCenter && (
+                        <div className="mt-1 text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                          <span className="font-medium">Team:</span> {selectedWorkCenter.maintenance_team_name || "N/A"}
+                        </div>
+                      )}
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              )}
 
-          <FormField
-            control={form.control}
-            name="scheduled_datetime"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Scheduled Date & Time</FormLabel>
-                <FormControl>
-                  <Input type="datetime-local" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium text-gray-700">Description</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        {...field} 
+                        placeholder="Additional details about the maintenance request"
+                        rows={3}
+                        className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 resize-none"
+                      />
+                    </FormControl>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {field.value?.length || 0} / 1000 characters
+                    </div>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="assigned_to_user_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Technician</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  value={field.value || undefined}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select technician (optional)" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {users.length > 0 ? (
-                      users.map((user) => (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.name}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-users" disabled>No technicians available</SelectItem>
+          {/* Scheduling & Assignment Card */}
+          <Card className="border-0 shadow-sm bg-white">
+            <CardHeader className="pb-4 border-b">
+              <CardTitle className="text-lg font-semibold text-[#374151]">Scheduling & Assignment</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="request_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">Maintenance Type *</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="flex gap-6"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="corrective" id="corrective" />
+                            <Label htmlFor="corrective" className="text-sm font-normal cursor-pointer">Corrective</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="preventive" id="preventive" />
+                            <Label htmlFor="preventive" className="text-sm font-normal cursor-pointer">Preventive</Label>
+                          </div>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">Priority</FormLabel>
+                      <FormControl>
+                        <div className="flex gap-2">
+                          {[1, 2, 3].map((level) => (
+                            <button
+                              key={level}
+                              type="button"
+                              onClick={() => field.onChange(level)}
+                              className={`h-9 w-9 border-2 rounded flex items-center justify-center transition-colors ${
+                                level <= (field.value || 1)
+                                  ? "bg-[#714B67] border-[#714B67] text-white"
+                                  : "border-gray-300 bg-white hover:border-gray-400"
+                              }`}
+                            >
+                              {level <= (field.value || 1) && (
+                                <span className="text-sm font-semibold">{level}</span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </FormControl>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {field.value === 1 && "Low Priority"}
+                        {field.value === 2 && "Medium Priority"}
+                        {field.value === 3 && "High Priority"}
+                      </div>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="scheduled_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">
+                        Scheduled Date {requestType === "preventive" && "*"}
+                      </FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="date" 
+                          {...field} 
+                          className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                          min={new Date().toISOString().split('T')[0]}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="scheduled_datetime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">
+                        Scheduled Date & Time {requestType === "preventive" && "*"}
+                      </FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="datetime-local" 
+                          {...field} 
+                          className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                          min={new Date().toISOString().slice(0, 16)}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="assigned_to_user_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">Technician</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                            <SelectValue placeholder="Select technician (optional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {users.length > 0 ? (
+                            users.map((user) => (
+                              <SelectItem key={user.id} value={user.id.toString()}>
+                                {user.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="px-2 py-1.5 text-sm text-gray-500">No technicians available</div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="duration_hours"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">Duration (Hours)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.1" 
+                          min="0"
+                          max="1000"
+                          {...field} 
+                          placeholder="0.0"
+                          className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Additional Information Card */}
+          <Card className="border-0 shadow-sm bg-white">
+            <CardHeader className="pb-4 border-b">
+              <CardTitle className="text-lg font-semibold text-[#374151]">Additional Information</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <Tabs defaultValue="notes" className="w-full">
+                <TabsList className="bg-gray-100">
+                  <TabsTrigger value="notes" className="data-[state=active]:bg-white">Notes</TabsTrigger>
+                  <TabsTrigger value="instructions" className="data-[state=active]:bg-white">Instructions</TabsTrigger>
+                </TabsList>
+                <TabsContent value="notes" className="mt-4">
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Textarea 
+                            {...field} 
+                            placeholder="Add notes for this maintenance request..."
+                            rows={6}
+                            className="border-gray-300 focus:border-[#714B67] focus:ring-[#714B67] resize-none"
+                          />
+                        </FormControl>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {field.value?.length || 0} / 2000 characters
+                        </div>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
                     )}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                  />
+                </TabsContent>
+                <TabsContent value="instructions" className="mt-4">
+                  <FormField
+                    control={form.control}
+                    name="instructions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Textarea 
+                            {...field} 
+                            placeholder="Add instructions for the technician..."
+                            rows={6}
+                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 resize-none"
+                          />
+                        </FormControl>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {field.value?.length || 0} / 2000 characters
+                        </div>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
 
-          <FormField
-            control={form.control}
-            name="duration_hours"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Duration (Hours)</FormLabel>
-                <FormControl>
-                  <Input type="number" step="0.1" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea {...field} placeholder="Additional details" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+          {requestId && (
+            <Card className="border-0 shadow-sm bg-white">
+              <CardHeader className="pb-4 border-b">
+                <CardTitle className="text-lg font-semibold text-gray-900">Status</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-gray-700">Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="new">New</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="repaired">Repaired</SelectItem>
+                          <SelectItem value="scrapped">Scrapped</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
           )}
-        />
 
-        <Tabs defaultValue="notes" className="w-full">
-          <TabsList>
-            <TabsTrigger value="notes">Notes</TabsTrigger>
-            <TabsTrigger value="instructions">Instructions</TabsTrigger>
-          </TabsList>
-          <TabsContent value="notes" className="mt-4">
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Textarea {...field} placeholder="Add notes..." rows={6} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </TabsContent>
-          <TabsContent value="instructions" className="mt-4">
-            <FormField
-              control={form.control}
-              name="instructions"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Textarea {...field} placeholder="Add instructions..." rows={6} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </TabsContent>
-        </Tabs>
-
-        {requestId && (
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Status</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="new">New</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="repaired">Repaired</SelectItem>
-                    <SelectItem value="scrapped">Scrapped</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
-        <Button type="submit" className="w-full">
-          {requestId ? "Update Request" : "Create Request"}
-        </Button>
-      </form>
-    </Form>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                form.reset();
+                setSelectedEquipment(null);
+                setSelectedWorkCenter(null);
+              }}
+              className="h-10 px-6"
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={loading}
+              className="h-10 px-6 bg-[#714B67] hover:bg-[#714B67] hover:text-white"
+            >
+              {loading ? "Saving..." : requestId ? "Save" : "Create"}
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </div>
   );
 }

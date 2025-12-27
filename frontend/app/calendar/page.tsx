@@ -1,14 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { requestsAPI } from "@/lib/api";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { RequestForm } from "@/components/requests/request-form";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, getWeek, parseISO, isSameDay, addDays } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
+import { requestsAPI } from "@/lib/api";
+import {
+  addDays,
+  addWeeks,
+  endOfWeek,
+  format,
+  getWeek,
+  isSameDay,
+  parseISO,
+  startOfWeek,
+  subWeeks,
+} from "date-fns";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus
+} from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export default function CalendarPage() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -22,8 +42,14 @@ export default function CalendarPage() {
   async function loadCalendarRequests() {
     try {
       setLoading(true);
-      const start = format(startOfWeek(currentWeek), "yyyy-MM-dd");
-      const end = format(endOfWeek(currentWeek), "yyyy-MM-dd");
+      const start = format(
+        startOfWeek(currentWeek, { weekStartsOn: 0 }),
+        "yyyy-MM-dd"
+      );
+      const end = format(
+        endOfWeek(currentWeek, { weekStartsOn: 0 }),
+        "yyyy-MM-dd"
+      );
       const data = await requestsAPI.getCalendar(start, end);
       setRequests(data);
     } catch (error) {
@@ -40,15 +66,15 @@ export default function CalendarPage() {
   function getRequestsForTimeSlot(date: Date, hour: number) {
     return requests.filter((req) => {
       if (!req.scheduled_datetime && !req.scheduled_date) return false;
-      
+
       try {
-        const scheduledDate = req.scheduled_datetime 
+        const scheduledDate = req.scheduled_datetime
           ? parseISO(req.scheduled_datetime)
           : parseISO(req.scheduled_date);
-        
+
         const isSameDate = isSameDay(scheduledDate, date);
         const scheduledHour = scheduledDate.getHours();
-        
+
         return isSameDate && scheduledHour === hour;
       } catch {
         return false;
@@ -64,37 +90,57 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Maintenance Calendar</h1>
+    <div className="space-y-4 bg-gray-50 min-h-screen p-6">
+      {/* Header - Odoo Style */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-[#374151]">
+              Maintenance Calendar
+            </h1>
+            <p className="text-sm text-gray-600 mt-1">
+              View and schedule preventive maintenance
+            </p>
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="bg-[#714B67] hover:bg-[#714B67] hover:text-white h-9 px-4">
+                <Plus className="mr-2 h-4 w-4" />
+                Schedule Request
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0">
+              <div className="p-6 border-b">
+                <DialogTitle className="text-xl font-semibold text-[#374151]">
+                  Schedule Maintenance Request
+                </DialogTitle>
+                <DialogDescription className="text-sm text-gray-600 mt-1">
+                  Create a preventive maintenance request
+                </DialogDescription>
+              </div>
+              <div className="p-6">
+                <RequestForm
+                  onSuccess={() => {
+                    loadCalendarRequests();
+                  }}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Schedule Request
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Schedule Maintenance Request</DialogTitle>
-              <DialogDescription>Create a preventive maintenance request</DialogDescription>
-            </DialogHeader>
-            <RequestForm onSuccess={() => { loadCalendarRequests(); }} />
-          </DialogContent>
-        </Dialog>
       </div>
 
-      {/* Navigation Bar */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-4">
+      {/* Calendar - Odoo Style */}
+      <Card className="border border-gray-200 shadow-sm bg-white">
+        <CardContent className="p-4">
+          {/* Navigation Bar */}
+          <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}
+                className="h-8 w-8 border-gray-300"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -102,47 +148,51 @@ export default function CalendarPage() {
                 variant="outline"
                 size="icon"
                 onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}
+                className="h-8 w-8 border-gray-300"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <select
-                className="px-3 py-2 border rounded-md"
+                className="px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 value="week"
                 onChange={() => {}}
               >
-                <option value="week">Week</option>
-                <option value="month">Month</option>
+                <option className="text-[#374151]" value="week">Week</option>
+                <option className="text-[#374151]" value="month">Month</option>
               </select>
               <Button
                 variant="outline"
                 onClick={() => setCurrentWeek(new Date())}
+                className="h-8 px-3 text-sm border-gray-300 text-[#374151]"
               >
                 Today
               </Button>
             </div>
-            <div className="text-lg font-medium">
+            <div className="text-base font-semibold text-[#374151]">
               {format(weekStart, "MMMM yyyy")} Week {getWeekNumber(currentWeek)}
             </div>
           </div>
 
           {/* Calendar Grid */}
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border border-gray-300 rounded-lg overflow-hidden">
             {/* Header with days */}
-            <div className="grid grid-cols-8 border-b bg-muted/50">
-              <div className="p-2 text-sm font-medium border-r"></div>
+            <div className="grid grid-cols-8 border-b border-gray-300 bg-gray-50">
+              <div className="p-2 text-xs font-medium text-gray-600 border-r border-gray-300"></div>
               {weekDays.map((day) => (
                 <div
                   key={day.toISOString()}
-                  className={`p-2 text-center border-r last:border-r-0 ${
-                    isSameDay(day, currentDate) ? "bg-red-50" : ""
+                  className={`p-2 text-center border-r border-gray-300 last:border-r-0 ${
+                    isSameDay(day, currentDate) ? "bg-[#714B67] text-white" : ""
                   }`}
                 >
-                  <div className="text-xs text-muted-foreground">
-                    {format(day, "EEE").toUpperCase()}
+                  <div className={`text-xs ${isSameDay(day, currentDate) ? "text-white" : "text-[#374151]"} uppercase mb-1`}>
+                    {format(day, "EEE")}
                   </div>
                   <div
-                    className={`text-lg font-semibold ${
-                      isSameDay(day, currentDate) ? "text-red-600" : ""
+                    className={`text-base font-semibold ${
+                      isSameDay(day, currentDate)
+                        ? "text-white"
+                        : "text-[#374151]"
                     }`}
                   >
                     {format(day, "d")}
@@ -154,22 +204,26 @@ export default function CalendarPage() {
             {/* Time slots and grid */}
             <div className="overflow-y-auto" style={{ maxHeight: "600px" }}>
               {hours.map((hour) => (
-                <div key={hour} className="grid grid-cols-8 border-b">
+                <div
+                  key={hour}
+                  className="grid grid-cols-8 border-b border-gray-200"
+                >
                   {/* Time label */}
-                  <div className="p-2 text-sm text-muted-foreground border-r bg-muted/30">
+                  <div className="p-2 text-sm text-gray-600 border-r border-gray-200 bg-gray-50">
                     {String(hour).padStart(2, "0")}:00
                   </div>
-                  
+
                   {/* Day columns */}
                   {weekDays.map((day) => {
                     const slotRequests = getRequestsForTimeSlot(day, hour);
-                    const isCurrentTime = isSameDay(day, currentDate) && hour === currentHour;
-                    
+                    const isCurrentTime =
+                      isSameDay(day, currentDate) && hour === currentHour;
+
                     return (
                       <div
                         key={`${day.toISOString()}-${hour}`}
-                        className={`p-1 border-r last:border-r-0 min-h-[60px] relative ${
-                          isCurrentTime ? "bg-red-50" : ""
+                        className={`p-1 border-r border-gray-200 last:border-r-0 min-h-[60px] relative ${
+                          isCurrentTime ? "bg-red-50" : "bg-white"
                         }`}
                       >
                         {isCurrentTime && (
@@ -179,11 +233,15 @@ export default function CalendarPage() {
                           <Link
                             key={req.id}
                             href={`/requests/${req.id}`}
-                            className="block mb-1 p-1 rounded text-xs bg-blue-100 hover:bg-blue-200 border border-blue-300 cursor-pointer"
+                            className="block mb-1 p-1.5 rounded text-xs bg-blue-100 hover:bg-blue-200 border border-blue-300 cursor-pointer transition-colors"
                           >
-                            <div className="font-medium truncate">{req.subject}</div>
-                            <div className="text-muted-foreground truncate">
-                              {req.equipment_name || req.work_center_name || "N/A"}
+                            <div className="font-medium text-gray-900 truncate">
+                              {req.subject}
+                            </div>
+                            <div className="text-gray-600 truncate mt-0.5">
+                              {req.equipment_name ||
+                                req.work_center_name ||
+                                "N/A"}
                             </div>
                           </Link>
                         ))}
@@ -197,32 +255,37 @@ export default function CalendarPage() {
         </CardContent>
       </Card>
 
-      {/* Mini Calendar */}
-      <Card className="w-64">
-        <CardHeader>
-          <CardTitle className="text-sm">{format(currentWeek, "MMMM yyyy")}</CardTitle>
+      {/* Mini Calendar - Odoo Style */}
+      <Card className="w-64 border border-gray-200 shadow-sm bg-white">
+        <CardHeader className="pb-3 border-b border-gray-200">
+          <CardTitle className="text-sm font-semibold text-gray-900">
+            {format(currentWeek, "MMMM yyyy")}
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <div className="grid grid-cols-7 gap-1 text-center text-xs">
             {["S", "M", "T", "W", "T", "F", "S"].map((day, i) => (
-              <div key={i} className="font-medium text-muted-foreground p-1">
+              <div key={i} className="font-semibold text-gray-500 p-1">
                 {day}
               </div>
             ))}
             {Array.from({ length: 35 }, (_, i) => {
-              const date = addDays(startOfWeek(currentWeek, { weekStartsOn: 0 }), i - 7);
+              const date = addDays(
+                startOfWeek(currentWeek, { weekStartsOn: 0 }),
+                i - 7
+              );
               const isCurrentMonth = date.getMonth() === currentWeek.getMonth();
               const isToday = isSameDay(date, currentDate);
-              
+
               return (
                 <div
                   key={i}
-                  className={`p-1 ${
+                  className={`p-1.5 rounded ${
                     isToday
-                      ? "bg-blue-500 text-white rounded-full"
+                      ? "bg-blue-600 text-white font-semibold"
                       : isCurrentMonth
-                      ? "text-foreground"
-                      : "text-muted-foreground"
+                      ? "text-gray-900 hover:bg-gray-100 cursor-pointer"
+                      : "text-gray-400"
                   }`}
                 >
                   {format(date, "d")}

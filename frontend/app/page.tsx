@@ -69,21 +69,19 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Title */}
       <div>
-        <h1 className="text-3xl font-bold">1. Dashboard</h1>
+        <h1 className="text-3xl font-bold text-[#374151]">Dashboard</h1>
       </div>
-
-      {/* Action and Search Bar */}
       <div className="flex items-center justify-between gap-4">
         <Dialog>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="bg-[#714B67] hover:bg-[#714B67] hover:text-white">
               <Plus className="mr-2 h-4 w-4" />
               New
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create Maintenance Request</DialogTitle>
+              <DialogTitle className="text-[#374151]">Create Maintenance Request</DialogTitle>
               <DialogDescription>Create a new maintenance request for Equipment or Work Center</DialogDescription>
             </DialogHeader>
             <RequestForm onSuccess={() => { loadDashboard(); }} />
@@ -171,8 +169,8 @@ export default function Dashboard() {
       {/* Data Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Maintenance Requests</CardTitle>
-          <CardDescription>Recent maintenance requests and their status</CardDescription>
+          <CardTitle className="text-[#374151]">Maintenance Requests</CardTitle>
+          <CardDescription className="text-[#374151]">Recent maintenance requests and their status</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -181,12 +179,12 @@ export default function Dashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Subjects</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Technician</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Stage</TableHead>
-                  <TableHead>Company</TableHead>
+                  <TableHead className="text-[#374151]">Subjects</TableHead>
+                  <TableHead className="text-[#374151]">Employee</TableHead>
+                  <TableHead className="text-[#374151]">Technician</TableHead>
+                  <TableHead className="text-[#374151]">Category</TableHead>
+                  <TableHead className="text-[#374151]">Stage</TableHead>
+                  <TableHead className="text-[#374151]">Company</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -199,13 +197,11 @@ export default function Dashboard() {
                 ) : (
                   tableData.map((row) => (
                     <TableRow key={row.id} className="cursor-pointer hover:bg-muted/50" onClick={() => window.location.href = `/requests/${row.id}`}>
-                      <TableCell className="font-medium">{row.subject || "N/A"}</TableCell>
-                      <TableCell>{row.employee_name || "N/A"}</TableCell>
-                      <TableCell>{row.technician_name || "Unassigned"}</TableCell>
-                      <TableCell>
-                        {row.equipment_category || "N/A"}
-                      </TableCell>
-                      <TableCell>
+                      <TableCell className="font-medium text-[#374151]">{row.subject || "N/A"}</TableCell>
+                      <TableCell className="text-[#374151]">{row.employee_name || "N/A"}</TableCell>
+                      <TableCell className="text-[#374151]">{row.technician_name || "Unassigned"}</TableCell>
+                        <TableCell className="text-[#374151]">{row.equipment_category || "N/A"}</TableCell>
+                      <TableCell className="text-[#374151]">
                         <Badge
                           variant={
                             row.status === "repaired"
@@ -224,7 +220,7 @@ export default function Dashboard() {
                             : row.status || "N/A"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{row.company_name || "My Company"}</TableCell>
+                      <TableCell className="text-[#374151]">{row.company_name || "My Company"}</TableCell>
                     </TableRow>
                   ))
                 )}
