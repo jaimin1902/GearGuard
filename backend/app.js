@@ -28,7 +28,26 @@ app.get("/", (req, res) => {
   res.send("Hello, World!");
 });
 
-// your routes here
+// API Routes
+import authRoutes from "./routes/authRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+import equipmentRoutes from "./routes/equipmentRoutes.js";
+import equipmentCategoryRoutes from "./routes/equipmentCategoryRoutes.js";
+import workCenterRoutes from "./routes/workCenterRoutes.js";
+import teamRoutes from "./routes/teamRoutes.js";
+import requestRoutes from "./routes/requestRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import departmentRoutes from "./routes/departmentRoutes.js";
+
+app.use("/api/auth", authRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/equipment", equipmentRoutes);
+app.use("/api/equipment-categories", equipmentCategoryRoutes);
+app.use("/api/work-centers", workCenterRoutes);
+app.use("/api/teams", teamRoutes);
+app.use("/api/requests", requestRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/departments", departmentRoutes);
 
 app.use(errorMiddleware);
 
