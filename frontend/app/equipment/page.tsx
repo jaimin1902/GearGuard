@@ -80,17 +80,17 @@ export default function EquipmentPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Equipment</h1>
+        <h1 className="text-3xl font-bold text-[#374151]">Equipment</h1>
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
           <DialogTrigger asChild>
-            <Button onClick={handleNewEquipment}>
+            <Button className="bg-[#714B67] hover:bg-[#714B67] hover:text-white" onClick={handleNewEquipment}>
               <Plus className="mr-2 h-4 w-4" />
               New
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>New Equipment</DialogTitle>
+              <DialogTitle className="text-[#374151]">New Equipment</DialogTitle>
             </DialogHeader>
             <EquipmentForm
               equipmentId={selectedEquipmentId || undefined}
@@ -135,8 +135,8 @@ export default function EquipmentPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Equipment List</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-[#374151]">Equipment List</CardTitle>
+          <CardDescription className="text-[#374151]">
             {equipment.length} equipment items found
           </CardDescription>
         </CardHeader>
@@ -147,13 +147,13 @@ export default function EquipmentPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Equipment Name</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Serial Number</TableHead>
-                  <TableHead>Technician</TableHead>
-                  <TableHead>Equipment Category</TableHead>
-                  <TableHead>Company</TableHead>
+                  <TableHead className="text-[#374151]">Equipment Name</TableHead>
+                  <TableHead className="text-[#374151]">Employee</TableHead>
+                  <TableHead className="text-[#374151]">Department</TableHead>
+                  <TableHead className="text-[#374151]">Serial Number</TableHead>
+                  <TableHead className="text-[#374151]">Technician</TableHead>
+                  <TableHead className="text-[#374151]">Equipment Category</TableHead>
+                  <TableHead className="text-[#374151]">Company</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -163,15 +163,15 @@ export default function EquipmentPage() {
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleEquipmentClick(item.id)}
                   >
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.assigned_to_name || "-"}</TableCell>
-                    <TableCell>{item.department_name || "-"}</TableCell>
-                    <TableCell>{item.serial_number || "-"}</TableCell>
-                    <TableCell>{item.default_technician_name || "-"}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium text-[#374151]">{item.name}</TableCell>
+                    <TableCell className="text-[#374151]">{item.assigned_to_name || "-"}</TableCell>
+                    <TableCell className="text-[#374151]">{item.department_name || "-"}</TableCell>
+                    <TableCell className="text-[#374151]">{item.serial_number || "-"}</TableCell>
+                    <TableCell className="text-[#374151]">{item.default_technician_name || "-"}</TableCell>
+                    <TableCell className="text-[#374151]">
                       {item.equipment_category_name || item.category || "-"}
                     </TableCell>
-                    <TableCell>{item.company || "-"}</TableCell>
+                    <TableCell className="text-[#374151]">{item.company || "-"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

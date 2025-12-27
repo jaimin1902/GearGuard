@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -14,11 +18,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { equipmentAPI, departmentsAPI, teamsAPI, usersAPI, equipmentCategoriesAPI, workCentersAPI } from "@/lib/api";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  departmentsAPI,
+  equipmentAPI,
+  equipmentCategoriesAPI,
+  teamsAPI,
+  usersAPI,
+  workCentersAPI,
+} from "@/lib/api";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Wrench } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 
 const equipmentSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -44,7 +58,11 @@ interface EquipmentFormProps {
   openRequestsCount?: number;
 }
 
-export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }: EquipmentFormProps) {
+export function EquipmentForm({
+  equipmentId,
+  onSuccess,
+  openRequestsCount = 0,
+}: EquipmentFormProps) {
   const [departments, setDepartments] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -82,13 +100,14 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
 
   async function loadOptions() {
     try {
-      const [deptData, teamsData, usersData, categoriesData, workCentersData] = await Promise.all([
-        departmentsAPI.getAll(),
-        teamsAPI.getAll(),
-        usersAPI.getAll(),
-        equipmentCategoriesAPI.getAll(),
-        workCentersAPI.getAll(),
-      ]);
+      const [deptData, teamsData, usersData, categoriesData, workCentersData] =
+        await Promise.all([
+          departmentsAPI.getAll(),
+          teamsAPI.getAll(),
+          usersAPI.getAll(),
+          equipmentCategoriesAPI.getAll(),
+          workCentersAPI.getAll(),
+        ]);
       setDepartments(deptData);
       setTeams(teamsData);
       setUsers(usersData);
@@ -109,11 +128,13 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
         used_by: data.used_by || "employee",
         maintenance_team_id: data.maintenance_team_id?.toString() || "",
         department_id: data.department_id?.toString() || "",
-        assigned_date: data.assigned_date ? data.assigned_date.split('T')[0] : "",
+        assigned_date: data.assigned_date
+          ? data.assigned_date.split("T")[0]
+          : "",
         description: data.description || "",
         default_technician_id: data.default_technician_id?.toString() || "",
         assigned_to_user_id: data.assigned_to_user_id?.toString() || "",
-        scrap_date: data.scrap_date ? data.scrap_date.split('T')[0] : "",
+        scrap_date: data.scrap_date ? data.scrap_date.split("T")[0] : "",
         used_in_location: data.used_in_location || "",
         work_center_id: data.work_center_id?.toString() || "",
       });
@@ -136,49 +157,72 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
   async function onSubmit(values: EquipmentFormValues) {
     try {
       setLoading(true);
-      
+
       // Helper function to safely parse integer
       const parseId = (value: string | undefined): number | null => {
         if (!value || value === "" || value === "undefined") return null;
         const parsed = parseInt(value);
         return isNaN(parsed) ? null : parsed;
       };
-      
+
       // Validate required fields
-      if (!values.equipment_category_id || values.equipment_category_id === "" || values.equipment_category_id === "undefined") {
+      if (
+        !values.equipment_category_id ||
+        values.equipment_category_id === "" ||
+        values.equipment_category_id === "undefined"
+      ) {
         alert("Equipment Category is required");
         setLoading(false);
         return;
       }
-      
-      if (!values.maintenance_team_id || values.maintenance_team_id === "" || values.maintenance_team_id === "undefined") {
+
+      if (
+        !values.maintenance_team_id ||
+        values.maintenance_team_id === "" ||
+        values.maintenance_team_id === "undefined"
+      ) {
         alert("Maintenance Team is required");
         setLoading(false);
         return;
       }
-      
+
       const categoryId = parseId(values.equipment_category_id);
       const teamId = parseId(values.maintenance_team_id);
-      
+
       if (!categoryId || !teamId) {
         alert("Please select valid Equipment Category and Maintenance Team");
         setLoading(false);
         return;
       }
-      
+
       const payload: any = {
         name: values.name,
         equipment_category_id: categoryId,
-        company: values.company && values.company.trim() !== "" ? values.company : null,
+        company:
+          values.company && values.company.trim() !== ""
+            ? values.company
+            : null,
         used_by: values.used_by || "employee",
         maintenance_team_id: teamId,
         department_id: parseId(values.department_id),
-        assigned_date: values.assigned_date && values.assigned_date !== "" ? values.assigned_date : null,
-        description: values.description && values.description.trim() !== "" ? values.description : null,
+        assigned_date:
+          values.assigned_date && values.assigned_date !== ""
+            ? values.assigned_date
+            : null,
+        description:
+          values.description && values.description.trim() !== ""
+            ? values.description
+            : null,
         default_technician_id: parseId(values.default_technician_id),
         assigned_to_user_id: parseId(values.assigned_to_user_id),
-        scrap_date: values.scrap_date && values.scrap_date !== "" ? values.scrap_date : null,
-        used_in_location: values.used_in_location && values.used_in_location.trim() !== "" ? values.used_in_location : null,
+        scrap_date:
+          values.scrap_date && values.scrap_date !== ""
+            ? values.scrap_date
+            : null,
+        used_in_location:
+          values.used_in_location && values.used_in_location.trim() !== ""
+            ? values.used_in_location
+            : null,
         work_center_id: parseId(values.work_center_id),
       };
 
@@ -190,14 +234,17 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
       onSuccess();
     } catch (error: any) {
       console.error("Failed to save equipment:", error);
-      const errorMessage = error?.message || "Failed to save equipment. Please try again.";
+      const errorMessage =
+        error?.message || "Failed to save equipment. Please try again.";
       alert(errorMessage);
     } finally {
       setLoading(false);
     }
   }
 
-  const openRequests = requests.filter((r) => r.status === "new" || r.status === "in_progress");
+  const openRequests = requests.filter(
+    (r) => r.status === "new" || r.status === "in_progress"
+  );
   const displayCount = openRequests.length;
 
   return (
@@ -217,7 +264,7 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
           </Button>
         </div>
       )}
-      
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -228,7 +275,7 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name? *</FormLabel>
+                    <FormLabel className="text-[#374151]">Name? *</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -242,12 +289,16 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="equipment_category_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Equipment Category? *</FormLabel>
-                    <Select 
+                    <FormLabel className="text-[#374151]">Equipment Category? *</FormLabel>
+                    <Select
                       onValueChange={(value) => {
                         field.onChange(value);
-                      }} 
-                      value={field.value && field.value !== "" ? field.value : undefined}
+                      }}
+                      value={
+                        field.value && field.value !== ""
+                          ? field.value
+                          : undefined
+                      }
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -256,7 +307,9 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                       </FormControl>
                       <SelectContent>
                         {categories.length === 0 ? (
-                          <div className="px-2 py-1.5 text-sm text-muted-foreground">No categories available</div>
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                            No categories available
+                          </div>
                         ) : (
                           categories.map((cat) => (
                             <SelectItem key={cat.id} value={cat.id.toString()}>
@@ -276,9 +329,12 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="company"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company?</FormLabel>
+                    <FormLabel className="text-[#374151]">Company?</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="e.g., My Company (San Francisco)" />
+                      <Input
+                        {...field}
+                        placeholder="e.g., My Company (San Francisco)"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -290,7 +346,7 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="used_by"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Used By?</FormLabel>
+                    <FormLabel className="text-[#374151]">Used By?</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -312,8 +368,11 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="maintenance_team_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Maintenance Team? *</FormLabel>
-                    <Select onValueChange={(value) => field.onChange(value || "")} value={field.value || undefined}>
+                    <FormLabel className="text-[#374151]">Maintenance Team? *</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(value || "")}
+                      value={field.value || undefined}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select team" />
@@ -337,8 +396,11 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="department_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Department?</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <FormLabel className="text-[#374151]">Department?</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || undefined}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select department" />
@@ -362,7 +424,7 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="assigned_date"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Assigned Date?</FormLabel>
+                    <FormLabel className="text-[#374151]">Assigned Date?</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
@@ -376,9 +438,13 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel className="text-[#374151]">Description</FormLabel>
                     <FormControl>
-                      <Textarea {...field} rows={4} placeholder="Enter description..." />
+                      <Textarea
+                        {...field}
+                        rows={4}
+                        placeholder="Enter description..."
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -393,19 +459,30 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="default_technician_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Technician?</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <FormLabel className="text-[#374151]">Technician?</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || undefined}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select technician" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {users.filter((u) => u.role === "technician" || u.role === "manager").map((user) => (
-                          <SelectItem key={user.id} value={user.id.toString()}>
-                            {user.name}
-                          </SelectItem>
-                        ))}
+                        {users
+                          .filter(
+                            (u) =>
+                              u.role === "technician" || u.role === "manager"
+                          )
+                          .map((user) => (
+                            <SelectItem
+                              key={user.id}
+                              value={user.id.toString()}
+                            >
+                              {user.name}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -418,8 +495,11 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="assigned_to_user_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Employee?</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <FormLabel className="text-[#374151]">Employee?</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || undefined}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select employee" />
@@ -443,7 +523,7 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="scrap_date"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Scrap Date?</FormLabel>
+                    <FormLabel className="text-[#374151]">Scrap Date?</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
@@ -457,9 +537,12 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="used_in_location"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Used in location?</FormLabel>
+                    <FormLabel className="text-[#374151]" >Used in location?</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Location where equipment is used" />
+                      <Input
+                        {...field}
+                        placeholder="Location where equipment is used"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -471,8 +554,11 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
                 name="work_center_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Work Center?</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <FormLabel className="text-[#374151]" >Work Center?</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || undefined}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select work center" />
@@ -493,8 +579,12 @@ export function EquipmentForm({ equipmentId, onSuccess, openRequestsCount = 0 }:
             </div>
           </div>
 
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Saving..." : equipmentId ? "Update Equipment" : "Create Equipment"}
+          <Button type="submit" disabled={loading} className="w-full bg-[#714B67] hover:bg-[#714B67] hover:text-white">
+            {loading
+              ? "Saving..."
+              : equipmentId
+              ? "Update Equipment"
+              : "Create Equipment"}
           </Button>
         </form>
       </Form>

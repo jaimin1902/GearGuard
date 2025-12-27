@@ -51,7 +51,7 @@ export function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-2 font-bold text-xl">
+            <Link href="/" className="flex items-center gap-2 font-bold text-xl text-[#714B67]">
               <Wrench className="h-6 w-6" />
               GearGuard
             </Link>
@@ -60,6 +60,7 @@ export function Navbar() {
                 <Button
                   key={item.href}
                   variant={pathname === item.href ? "default" : "ghost"}
+                  className={`${pathname === item.href ? "bg-[#714B67]" : ""} hover:bg-[#714B67] hover:text-white`}
                   asChild
                 >
                   <Link href={item.href}>{item.label}</Link>
@@ -68,12 +69,8 @@ export function Navbar() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            {/* {user && (
-              <span className="text-sm text-muted-foreground">
-                {user.name} ({user.role})
-              </span>
-            )} */}
-            <Button variant="ghost" onClick={handleLogout}>
+       
+            <Button className="text-[#714B67]" variant="ghost" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
             </Button>
