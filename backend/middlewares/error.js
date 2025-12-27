@@ -14,11 +14,12 @@ export const errorMiddleware = (
     
   const response = {
     success: false,
+    error: err.message,
     message: err.message,
   };
   
   if (envMode === "DEVELOPMENT") {
-    response.error = err;
+    response.stack = err.stack;
   }
   
   return res.status(err.statusCode).json(response);

@@ -9,7 +9,8 @@
     "migrate": "node db/runMigrations.js",
     "seed": "node db/seeds/seed.js",
     "seed:dashboard": "node db/seeds/seed_dashboard.js",
-    "reset": "npm run migrate && npm run seed",
+    "reset": "node db/reset.js",
+    "reset:seed": "node db/reset.js && node db/seeds/seed.js",
     "reset:dashboard": "npm run migrate && npm run seed:dashboard"
   },
   "keywords": [],
